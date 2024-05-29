@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"wijohnst/ts-redis-server/hello"
+) 
 
 func main() {
-	fmt.Println("Hello, World!")
+    hello.SayHello()
 }
