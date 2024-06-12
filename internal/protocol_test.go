@@ -1,6 +1,9 @@
 package internal
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 func TestDeserializeGet(t *testing.T) {
 	// Case 0: basic get
@@ -110,5 +113,214 @@ func TestDeserializeDelete(t *testing.T) {
 	_, err = deserialize(`*1\r\n$3\r\nDELETE\r\n`)
 	if err == nil {
 		t.Error("Test DELETE case 2: Expected DELETE with no key to throw error")
+	}
+}
+
+func TestSerializeStrings(t *testing.T) {
+	// Case 0: key and value are bulk strings
+	expected := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+	actual, err := serialize(Command{action: "SET", key: "foo", value: "bar"})
+
+	if actual != expected {
+		t.Errorf("serialize - handle strings > case 0:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
+	}
+	if err != nil {
+		t.Error("serialize - handle strings > case 0: Should not throw")
+
+	}
+
+	// Case 1: key is bulk string and value is nil
+	expected = "*2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n"
+	actual, err = serialize(Command{action: "SET", key: "foo"})
+	if actual != expected {
+		t.Errorf("Test SERIALIZE case 1: Output should match expected:\nExpected:\n%s\nActual:\n%s", expected, actual)
+	}
+	if err != nil {
+		t.Error("Test Serialization case 1: Should not throw")
+	}
+
+	// Case 2: missing key should throw an error
+	_, err = serialize(Command{action: "SET", key: nil, value: nil})
+
+	if err == nil {
+		t.Error("Test SERIALIZE case 2: Expected Command with no key to throw")
+	}
+}
+
+var preString = "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n"
+
+func TestSerializeIntegers(t *testing.T) {
+	// Case 0: key is a positive integer
+	expected := "*2\r\n$3\r\nSET\r\n:+1\r\n"
+	actual, err := serialize(Command{action: "SET", key: 1})
+
+	if actual != expected {
+		t.Errorf("serialize - handle integers > case 0:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
+	}
+	if err != nil {
+		t.Errorf("serialize - handle integers > case 0: encountered an exception: %q", err)
+	}
+
+	// Case 1: key is a negative integer
+	expected = "*2\r\n$3\r\nSET\r\n:-1\r\n"
+	actual, err = serialize(Command{action: "SET", key: -1})
+
+	if actual != expected {
+		t.Errorf("serialize - handle integers > case 1:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
+	}
+	if err != nil {
+		t.Errorf("serialize - handle integers > case 1: encountered an exception: %q", err)
+	}
+
+	// Case 2: value is a positive integer
+	expected = preString + ":+1\r\n"
+	actual, err = serialize(Command{action: "SET", key: "foo", value: 1})
+
+	if actual != expected {
+		t.Errorf("serialize - handle integers > case 2:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
+	}
+	if err != nil {
+		t.Errorf("serialize - handle integers > case 2: encountered an exception: %q", err)
+	}
+}
+
+func TestSerializeArrays(t *testing.T) {
+	sut := "serialize"
+	desc := "handle arrays"
+
+	// case 0 : handle primitive array
+	stringArr := []interface{}{"bar", "bax"}
+	command := Command{action: "SET", key: "foo", value: stringArr}
+	actual, err := serialize(command)
+	expected := preString + "*2\r\n$3\r\nbar\r\n$3\r\nbax\r\n"
+
+	if err != nil {
+		handleErr(sut, desc, 0, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 0, t, expected, actual)
+	}
+
+	// case 1 : handle nested array
+	arrayArr := [][]string{{"bar"}, {"bax", "biz"}}
+	command = Command{action: "SET", key: "foo", value: arrayArr}
+	actual, err = serialize(command)
+	expected = preString + "*2\r\n*1\r\n$3\r\nbar\r\n*2\r\n$3\r\nbax\r\n$3\r\nbiz\r\n"
+
+	if err != nil {
+		handleErr(sut, desc, 1, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 0, t, expected, actual)
+	}
+}
+
+func TestSerializeBooleans(t *testing.T) {
+	sut := "serialize"
+	desc := "handle booleans"
+
+	// case 0 : handle true
+	command := Command{action: "SET", key: "foo", value: true}
+	actual, err := serialize(command)
+	expected := preString + "#t\r\n"
+
+	if err != nil {
+		handleErr(sut, desc, 0, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 0, t, expected, actual)
+	}
+
+	// case 1 : handle false
+	command = Command{action: "SET", key: "foo", value: false}
+	actual, err = serialize(command)
+	expected = preString + "#f\r\n"
+
+	if err != nil {
+		handleErr(sut, desc, 1, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 1, t, expected, actual)
+	}
+}
+
+func handleErr(sut, desc string, c int, e error, t *testing.T) {
+	t.Errorf(sut+" - "+desc+" > case "+strconv.Itoa(c)+": encountered an exception: %q", e)
+}
+
+func handleAssertionError(sut, desc string, c int, t *testing.T, expected, actual interface{}) {
+	t.Errorf(sut+" - "+desc+" > case "+strconv.Itoa(c)+":\nEXPECTED:\n%q\nRECEIVED:\n%q\n", expected, actual)
+}
+
+func TestAppendCRLF(t *testing.T) {
+	// Case 0: should return the correctly appended string
+	expected := "foo\r\n"
+	actual := appendCRLF("foo")
+
+	if actual != expected {
+		t.Errorf("Test AppendCRLF case 0: Expected output to match")
+	}
+
+}
+
+func TestGetCommandSerialization(t *testing.T) {
+	// Case 0: should return the correct serialization for the target command
+	command := Command{action: "SET", key: "foo", value: "bar"}
+	expected := "*3\r\n"
+	actual := getCommandSerialization(command)
+
+	if actual != expected {
+		t.Errorf("Test GetCommandSerialization case 0: Output does not match expected\nEXPECTED: %s\nACTUAL: %s\n", expected, actual)
+	}
+
+	// Case 1: should return the correct serialization for the target command
+	command = Command{action: "SET", key: "foo"}
+	expected = "*2\r\n"
+	actual = getCommandSerialization(command)
+
+	if actual != expected {
+		t.Errorf("Test GetCommandSerialization case 1: Output does not match expected")
+	}
+
+	// Case 2: should return the correct serialization for the target command
+	command = Command{action: "SET"}
+	expected = "*1\r\n"
+	actual = getCommandSerialization(command)
+
+	if actual != expected {
+		t.Errorf("Test GetCommandSerialization case 2: Output does not match expected")
+	}
+}
+
+func TestGetFieldSerialization(t *testing.T) {
+	// Case 0: string should return "$" + input length
+	inputStr := "foo"
+	expected := "$3\r\nfoo\r\n"
+	actual := getFieldSerialization(inputStr)
+
+	if actual != expected {
+		t.Errorf("Test GetFieldSerialization case 0: Output should be: %q", expected)
+	}
+
+	// Case 1: positive integer should return ":+"
+	inputInt := 1
+	expected = ":+1\r\n"
+	actual = getFieldSerialization(inputInt)
+
+	if actual != expected {
+		t.Errorf("Test GetFieldSerialization case 1: Output should be: %q.\n Received: %q", expected, actual)
+	}
+
+	// Case 2: negative integer should return ":-"
+	inputInt = -1
+	expected = ":-1\r\n"
+	actual = getFieldSerialization(inputInt)
+
+	if actual != expected {
+		t.Errorf("Test GetFieldSerialization case 1: EXPECTED:%q\nRECEIVED: %q\n", expected, actual)
 	}
 }
