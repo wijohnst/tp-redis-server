@@ -116,71 +116,82 @@ func TestDeserializeDelete(t *testing.T) {
 	}
 }
 
+var preString = "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n"
+
 func TestSerializeStrings(t *testing.T) {
+	sut := "serialize"
+	desc := "handle strings"
+
 	// Case 0: key and value are bulk strings
-	expected := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+	expected := preString + "$3\r\nbar\r\n"
 	actual, err := serialize(Command{action: "SET", key: "foo", value: "bar"})
 
-	if actual != expected {
-		t.Errorf("serialize - handle strings > case 0:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
-	}
 	if err != nil {
-		t.Error("serialize - handle strings > case 0: Should not throw")
+		handleErr(sut, desc, 0, err, t)
+	}
 
+	if actual != expected {
+		handleAssertionError(sut, desc, 0, t, expected, actual)
 	}
 
 	// Case 1: key is bulk string and value is nil
 	expected = "*2\r\n$3\r\nSET\r\n$3\r\nfoo\r\n"
 	actual, err = serialize(Command{action: "SET", key: "foo"})
-	if actual != expected {
-		t.Errorf("Test SERIALIZE case 1: Output should match expected:\nExpected:\n%s\nActual:\n%s", expected, actual)
-	}
+
 	if err != nil {
-		t.Error("Test Serialization case 1: Should not throw")
+		handleErr(sut, desc, 1, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 1, t, expected, actual)
 	}
 
 	// Case 2: missing key should throw an error
 	_, err = serialize(Command{action: "SET", key: nil, value: nil})
 
 	if err == nil {
-		t.Error("Test SERIALIZE case 2: Expected Command with no key to throw")
+		t.Error(sut + " - " + desc + " > case 2 : Expected Command where c.key == nil to throw")
 	}
 }
 
-var preString = "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n"
-
 func TestSerializeIntegers(t *testing.T) {
+	sut := "serialize"
+	desc := "handle integers"
+
 	// Case 0: key is a positive integer
 	expected := "*2\r\n$3\r\nSET\r\n:+1\r\n"
 	actual, err := serialize(Command{action: "SET", key: 1})
 
-	if actual != expected {
-		t.Errorf("serialize - handle integers > case 0:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
-	}
 	if err != nil {
-		t.Errorf("serialize - handle integers > case 0: encountered an exception: %q", err)
+		handleErr(sut, desc, 0, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 0, t, expected, actual)
 	}
 
 	// Case 1: key is a negative integer
 	expected = "*2\r\n$3\r\nSET\r\n:-1\r\n"
 	actual, err = serialize(Command{action: "SET", key: -1})
 
-	if actual != expected {
-		t.Errorf("serialize - handle integers > case 1:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
-	}
 	if err != nil {
-		t.Errorf("serialize - handle integers > case 1: encountered an exception: %q", err)
+		handleErr(sut, desc, 1, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 1, t, expected, actual)
 	}
 
 	// Case 2: value is a positive integer
 	expected = preString + ":+1\r\n"
 	actual, err = serialize(Command{action: "SET", key: "foo", value: 1})
 
-	if actual != expected {
-		t.Errorf("serialize - handle integers > case 2:\nEXPECTED:%q\nRECEIVED:%q ", expected, actual)
-	}
 	if err != nil {
-		t.Errorf("serialize - handle integers > case 2: encountered an exception: %q", err)
+		handleErr(sut, desc, 2, err, t)
+	}
+
+	if actual != expected {
+		handleAssertionError(sut, desc, 2, t, expected, actual)
 	}
 }
 
@@ -257,24 +268,30 @@ func handleAssertionError(sut, desc string, c int, t *testing.T, expected, actua
 }
 
 func TestAppendCRLF(t *testing.T) {
+	sut := "appendCRLF"
+	desc := "basic use"
+
 	// Case 0: should return the correctly appended string
 	expected := "foo\r\n"
 	actual := appendCRLF("foo")
 
 	if actual != expected {
-		t.Errorf("Test AppendCRLF case 0: Expected output to match")
+		handleAssertionError(sut, desc, 0, t, expected, actual)
 	}
 
 }
 
 func TestGetCommandSerialization(t *testing.T) {
+	sut := "getCommandSerialization"
+	desc := "basic use"
+
 	// Case 0: should return the correct serialization for the target command
 	command := Command{action: "SET", key: "foo", value: "bar"}
 	expected := "*3\r\n"
 	actual := getCommandSerialization(command)
 
 	if actual != expected {
-		t.Errorf("Test GetCommandSerialization case 0: Output does not match expected\nEXPECTED: %s\nACTUAL: %s\n", expected, actual)
+		handleAssertionError(sut, desc, 0, t, expected, actual)
 	}
 
 	// Case 1: should return the correct serialization for the target command
@@ -283,7 +300,7 @@ func TestGetCommandSerialization(t *testing.T) {
 	actual = getCommandSerialization(command)
 
 	if actual != expected {
-		t.Errorf("Test GetCommandSerialization case 1: Output does not match expected")
+		handleAssertionError(sut, desc, 1, t, expected, actual)
 	}
 
 	// Case 2: should return the correct serialization for the target command
@@ -292,35 +309,41 @@ func TestGetCommandSerialization(t *testing.T) {
 	actual = getCommandSerialization(command)
 
 	if actual != expected {
-		t.Errorf("Test GetCommandSerialization case 2: Output does not match expected")
+		handleAssertionError(sut, desc, 2, t, expected, actual)
 	}
 }
 
 func TestGetFieldSerialization(t *testing.T) {
+	sut := "getFieldSerialization"
+	desc := "handle string"
+
 	// Case 0: string should return "$" + input length
 	inputStr := "foo"
 	expected := "$3\r\nfoo\r\n"
 	actual := getFieldSerialization(inputStr)
 
 	if actual != expected {
-		t.Errorf("Test GetFieldSerialization case 0: Output should be: %q", expected)
+		handleAssertionError(sut, desc, 0, t, expected, actual)
 	}
 
 	// Case 1: positive integer should return ":+"
+	desc = "handle positive integer"
 	inputInt := 1
 	expected = ":+1\r\n"
 	actual = getFieldSerialization(inputInt)
 
 	if actual != expected {
-		t.Errorf("Test GetFieldSerialization case 1: Output should be: %q.\n Received: %q", expected, actual)
+		handleAssertionError(sut, desc, 1, t, expected, actual)
 	}
 
 	// Case 2: negative integer should return ":-"
+	desc = "handle negative integer"
 	inputInt = -1
 	expected = ":-1\r\n"
 	actual = getFieldSerialization(inputInt)
 
 	if actual != expected {
-		t.Errorf("Test GetFieldSerialization case 1: EXPECTED:%q\nRECEIVED: %q\n", expected, actual)
+		handleAssertionError(sut, desc, 2, t, expected, actual)
 	}
+
 }
