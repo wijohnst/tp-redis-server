@@ -112,3 +112,51 @@ func TestDeserializeDelete(t *testing.T) {
 		t.Error("Test DELETE case 2: Expected DELETE with no key to throw error")
 	}
 }
+
+func TestSerializeGet(t *testing.T) {
+    expected := "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n"
+    command := Command{
+        action: "GET",
+        key:    "foo",
+        value:  nil,
+    }
+    actual, err := serialize(command)
+    if err != nil {
+        t.Error(err)
+    }
+    if actual != expected {
+        t.Errorf("Test GET: expected: %s, actual: %s", expected, actual)
+    }
+}
+
+func TestSerializeSet(t *testing.T) {
+    expected := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+    command := Command{
+        action: "SET",
+        key:    "foo",
+        value:  "bar",
+    }
+    actual, err := serialize(command)
+    if err != nil {
+        t.Error(err)
+    }
+    if actual != expected {
+        t.Errorf("Test SET: expected: %s, actual: %s", expected, actual)
+    }
+}
+
+func TestSerializeDelete(t *testing.T) {
+    expected := "*2\r\n$6\r\nDELETE\r\n$3\r\nfoo\r\n"
+    command := Command{
+        action: "DELETE",
+        key:    "foo",
+        value:  nil,
+    }
+    actual, err := serialize(command)
+    if err != nil {
+        t.Error(err)
+    }
+    if actual != expected {
+        t.Errorf("Test DELETE: expected: %s, actual: %s", expected, actual)
+    }
+}
