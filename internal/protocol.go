@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strings"
 )
 
 // / We'll likely want to make our own custom KeyValue interface that we only implement for the types we want to support
@@ -22,39 +23,47 @@ func deserialize(s string) (Command, error) {
 }
 
 // This should encode the `value` field of the input command as a RESP response
+
+// serialize function converts a Command struct into a RESP-compatible array and serializes it
 func serialize(c Command) (string, error) {
-    switch c.action {
-    case "GET":
-		if c.key == nil {
-            return "", fmt.Errorf("key cannot be nil for GET command")
-        }
-        if key, ok := c.key.(string); ok {
-            return fmt.Sprintf("*2\r\n$3\r\nGET\r\n$%d\r\n%s\r\n", len(key), key), nil
-        }
-        return "", fmt.Errorf("invalid key type for GET command")
-    case "SET":
-		if c.key == nil {
-            return "", fmt.Errorf("key cannot be nil for SET command")
-        }
-		if c.value == nil {
-            return "", fmt.Errorf("value cannot be nil for SET command")
-        }
-        if key, ok := c.key.(string); ok {
-            if value, ok := c.value.(string); ok {
-                return fmt.Sprintf("*3\r\n$3\r\nSET\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n", len(key), key, len(value), value), nil
-            }
-            return "", fmt.Errorf("invalid value type for SET command")
-        }
-        return "", fmt.Errorf("invalid key type for SET command")
-    case "DELETE":
-		if c.key == nil {
-            return "", fmt.Errorf("key cannot be nil for DELETE command")
-        }
-        if key, ok := c.key.(string); ok {
-            return fmt.Sprintf("*2\r\n$6\r\nDELETE\r\n$%d\r\n%s\r\n", len(key), key), nil
-        }
-        return "", fmt.Errorf("invalid key type for DELETE command")
-    default:
-        return "", fmt.Errorf("unsupported command: %s", c.action)
-    }
+	var data interface{}
+	switch c.action {
+	case "GET":
+		data = []interface{}{"GET", c.key}
+	case "SET":
+		data = []interface{}{"SET", c.key, c.value}
+	case "DELETE":
+		data = []interface{}{"DELETE", c.key}
+	default:
+		return "", fmt.Errorf("unsupported command: %s", c.action)
+	}
+	return serializeRESP(data)
+}
+
+// serializeRESP handles serialization of various Redis Serialization Protocol (RESP) data types
+func serializeRESP(data interface{}) (string, error) {
+	switch dataTypeValue := data.(type) {
+	case string:
+		if strings.HasPrefix(dataTypeValue, "-") {
+			return fmt.Sprintf("-%s\r\n", dataTypeValue[1:]), nil // Prints Error
+		} else if strings.HasPrefix(dataTypeValue, "+") {
+			return fmt.Sprintf("+%s\r\n", dataTypeValue[1:]), nil // PrintsSimple String
+		}
+		return fmt.Sprintf("$%d\r\n%s\r\n", len(dataTypeValue), dataTypeValue), nil // Prints Bulk String
+	case int:
+		return fmt.Sprintf(":%d\r\n", dataTypeValue), nil // Prints Integer
+	case []interface{}:
+		var builder strings.Builder
+		builder.WriteString(fmt.Sprintf("*%d\r\n", len(dataTypeValue))) // Prints Array
+		for _, elem := range dataTypeValue {
+			serializedElem, err := serializeRESP(elem)
+			if err != nil {
+				return "", err
+			}
+			builder.WriteString(serializedElem)
+		}
+		return builder.String(), nil
+	default:
+		return "", fmt.Errorf("unsupported data type: %T", dataTypeValue)
+	}
 }

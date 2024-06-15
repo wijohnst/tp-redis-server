@@ -113,50 +113,116 @@ func TestDeserializeDelete(t *testing.T) {
 	}
 }
 
-func TestSerializeGet(t *testing.T) {
-    expected := "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n"
-    command := Command{
-        action: "GET",
-        key:    "foo",
-        value:  nil,
-    }
-    actual, err := serialize(command)
-    if err != nil {
-        t.Error(err)
-    }
-    if actual != expected {
-        t.Errorf("Test GET: expected: %s, actual: %s", expected, actual)
-    }
+/*
+************************************************************************************
+							SERIALIZE FUNCTION TESTS
+************************************************************************************
+*/
+func TestSerializeGET(t *testing.T) {
+	expected := "*2\r\n$3\r\nGET\r\n$3\r\nfoo\r\n"
+	command := Command{
+		action: "GET",
+		key:    "foo",
+		value:  nil,
+	}
+	actual, err := serialize(command)
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
 }
 
-func TestSerializeSet(t *testing.T) {
-    expected := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
-    command := Command{
-        action: "SET",
-        key:    "foo",
-        value:  "bar",
-    }
-    actual, err := serialize(command)
-    if err != nil {
-        t.Error(err)
-    }
-    if actual != expected {
-        t.Errorf("Test SET: expected: %s, actual: %s", expected, actual)
-    }
+func TestSerializeSET(t *testing.T) {
+	expected := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+	command := Command{
+		action: "SET",
+		key:    "foo",
+		value:  "bar",
+	}
+	actual, err := serialize(command)
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
 }
 
-func TestSerializeDelete(t *testing.T) {
-    expected := "*2\r\n$6\r\nDELETE\r\n$3\r\nfoo\r\n"
-    command := Command{
-        action: "DELETE",
-        key:    "foo",
-        value:  nil,
-    }
-    actual, err := serialize(command)
-    if err != nil {
-        t.Error(err)
-    }
-    if actual != expected {
-        t.Errorf("Test DELETE: expected: %s, actual: %s", expected, actual)
-    }
+func TestSerializeDELETE(t *testing.T) {
+	expected := "*2\r\n$6\r\nDELETE\r\n$3\r\nfoo\r\n"
+	command := Command{
+		action: "DELETE",
+		key:    "foo",
+		value:  nil,
+	}
+	actual, err := serialize(command)
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
+
+/*
+************************************************************************************
+							SERIALIZE RESP FUNCTION TESTS
+************************************************************************************
+*/
+
+func TestSerializeSimpleStringRESP(t *testing.T) {
+	expected := "+OK\r\n"
+	actual, err := serializeRESP("+OK")
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
+
+func TestSerializeErrorRESP(t *testing.T) {
+	expected := "-Error message\r\n"
+	actual, err := serializeRESP("-Error message")
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
+
+func TestSerializeIntegerRESP(t *testing.T) {
+	expected := ":123\r\n"
+	actual, err := serializeRESP(123)
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
+
+func TestSerializeBulkStringRESP(t *testing.T) {
+	expected := "$11\r\nhello world\r\n"
+	actual, err := serializeRESP("hello world")
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
+}
+
+func TestSerializeArrayRESP(t *testing.T) {
+	expected := "*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+	actual, err := serializeRESP([]interface{}{"foo", "bar"})
+	if err != nil {
+		t.Error(err)
+	}
+	if actual != expected {
+		t.Errorf("expected: %s, actual: %s", expected, actual)
+	}
 }
